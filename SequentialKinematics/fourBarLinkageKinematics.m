@@ -1,0 +1,164 @@
+function [individualDOFNodeLoc, dPhi] = fourBarLinkageKinematics(linkageCoordinates, ...
+                                                                 linkageConnectivity, ...
+                                                                 groundLink, ...
+                                                                 originNode, addedNode, ...
+                                                                 pctActuation, steps)
+lclOrigin = linkageCoordinates(originNode, :);
+nonOrgGnd = setdiff(linkageConnectivity(groundLink, :), originNode);
+d = [linkageCoordinates(nonOrgGnd, 1) - ...
+     linkageCoordinates(originNode, 1), ...
+     linkageCoordinates(nonOrgGnd, 2) - ...
+     linkageCoordinates(originNode, 2)];
+l = sqrt(sum(d.^2));
+d = d ./ l;
+angleGround = atan2(d(2), d(1));
+% angleGround = mod(angleGround, 2*pi);
+
+angleAddedNode = atan2(linkageCoordinates(addedNode, 2) - linkageCoordinates(originNode, 2), ...
+                     linkageCoordinates(addedNode, 1) - linkageCoordinates(originNode, 1));
+% angleAddedNode = mod(angleAddedNode, 2*pi);
+
+if angleGround > 0
+    if (angleAddedNode < angleGround) && (angleAddedNode > angleGround - pi) 
+        lclAxes = rotz(rad2deg(pi + angleGround));
+    else
+        lclAxes = rotz(rad2deg(angleGround));
+    end
+else
+    if (angleAddedNode > angleGround) && (angleAddedNode <= angleGround + pi)
+        angleGround = mod(angleGround, 2*pi);
+        lclAxes = rotz(rad2deg(angleGround));
+    else
+        angleGround = mod(angleGround, 2*pi);
+        lclAxes = rotz(rad2deg(angleGround + pi));
+    end
+end
+
+% if angleGround <= pi
+%     if (angleAddedNode > angleGround) && (angleAddedNode <= angleGround + pi) 
+%         lclAxes = rotz(rad2deg(angleGround));
+%     else
+%         lclAxes = rotz(rad2deg(pi + angleGround));
+%     end
+% else
+%     if (angleAddedNode > angleGround) && (angleAddedNode <= angleGround + pi)
+%         lclAxes = rotz(rad2deg(angleGround));
+%     else
+%         lclAxes = rotz(rad2deg(angleGround - pi));
+%     end
+% end
+
+lclLinkageCoordinates = global2localcoord(linkageCoordinates', 'rr', ...
+                                          lclOrigin', lclAxes);
+lclLinkageCoordinates = lclLinkageCoordinates(1:2, :)';
+d = [lclLinkageCoordinates(nonOrgGnd, 1) - ...
+     lclLinkageCoordinates(originNode, 1), ...
+     lclLinkageCoordinates(nonOrgGnd, 2) - ...
+     lclLinkageCoordinates(originNode, 2)];
+l = sqrt(sum(d.^2));
+d = d ./ l;
+if abs(pi - abs(atan2(d(2), d(1)))) < 1e-6
+    doFlip = true;
+else
+    doFlip = false;
+end
+
+if doFlip
+    lclLinkageCoordinates = mirrorY(lclLinkageCoordinates, ...
+                                    lclLinkageCoordinates(originNode, :));
+end
+
+% Find bar lengths and directional cosines for each bar
+D = [lclLinkageCoordinates(linkageConnectivity(:, 2), 1) - ...
+     lclLinkageCoordinates(linkageConnectivity(:, 1), 1), ...
+     lclLinkageCoordinates(linkageConnectivity(:, 2), 2) - ...
+     lclLinkageCoordinates(linkageConnectivity(:, 1), 2)];
+linkageSides = sqrt(D(:, 1).^2 + D(:, 2).^2);
+D = [D(:, 1)./linkageSides, D(:, 2)./linkageSides];
+
+% a, b, c, d are the links of four bar linkage
+% d is always the ground link
+d = linkageSides(groundLink);
+nodeD = nonOrgGnd;
+
+% c is the link connect to groundLink other than a
+[I, ~] = find(linkageConnectivity == ...
+              setdiff(linkageConnectivity(groundLink, :), originNode));
+cIdx = setdiff(I, groundLink);
+c = linkageSides(cIdx);
+
+% a is the input link. Connects addedNode and originNode
+aIdx = find(ismember(linkageConnectivity, ...
+                     sort([originNode, addedNode]), "rows"));
+a = linkageSides(aIdx);
+nodeA = originNode;
+
+% b is the link connecting a & c.
+bIdx = setdiff(1:4, [groundLink, aIdx, cIdx]);
+b = linkageSides(bIdx);
+nodeB = addedNode;
+nodeC = setdiff(1:4, [nodeA, nodeB, nodeD]);
+
+% Initialize linkage angles
+theta = zeros(steps + 1, 3);
+linkageNodeLoc = zeros(size(linkageCoordinates, 1), ...
+    size(linkageCoordinates, 2), steps + 1);
+linkageNodeLoc(:, :, 1) = linkageCoordinates;
+
+theta2 = atan2(lclLinkageCoordinates(nodeB, 2) - lclLinkageCoordinates(nodeA, 2), ...
+               lclLinkageCoordinates(nodeB, 1) - lclLinkageCoordinates(nodeA, 1));
+theta3 = atan2(lclLinkageCoordinates(nodeC, 2) - lclLinkageCoordinates(nodeB, 2), ...
+               lclLinkageCoordinates(nodeC, 1) - lclLinkageCoordinates(nodeB, 1));
+theta4 = atan2(lclLinkageCoordinates(nodeC, 2) - lclLinkageCoordinates(nodeD, 2), ...
+               lclLinkageCoordinates(nodeC, 1) - lclLinkageCoordinates(nodeD, 1));
+theta(1, :) = [theta2, theta3, theta4];
+if pctActuation > 0
+    theta(:, 1) = linspace(theta(1, 1), (1 - pctActuation) * theta(1, 1), ...
+                           steps + 1)';
+elseif pctActuation < 0
+    theta(:, 1) = linspace(theta(1, 1), -pctActuation * (pi), steps + 1)';
+else
+    theta(:, 1) = linspace(theta(1, 1), -theta(1, 1), steps + 1)';
+end
+
+lclLinkageNodeLoc = zeros(4, 3);
+for inc = 2:steps+1
+    % Find new theta3 and theta4
+    r = d - a * cos(theta(inc, 1));
+    s = a * sin(theta(inc, 1));
+    cos_delta = (b^2 + c^2 - r^2 - s^2) / (2 * b * c);
+    delta = acos(cos_delta);
+    g = b - c * cos(delta);
+    h = c * sin(delta);
+    theta(inc, 2) = atan2((h * r - g * s), (g * r + h * s));
+    theta(inc, 3) = theta(inc, 2) + delta;
+    % Node A index (local)
+    lclLinkageNodeLoc(originNode, :) = [0, 0, 0];
+    % Node D index (local)
+    idxD = setdiff(linkageConnectivity(groundLink, :), originNode);
+    lclLinkageNodeLoc(idxD, :) = lclLinkageNodeLoc(originNode, :) + [d, 0, 0];
+    % Node B index (local)
+    idxB = setdiff(linkageConnectivity(aIdx, :), originNode);
+    lclLinkageNodeLoc(idxB, :) = lclLinkageNodeLoc(originNode, :) + ...
+        [a * cos(theta(inc, 1)), a * sin(theta(inc, 1)), 0];
+    % Node C index (local)
+    idxC = setdiff(linkageConnectivity(cIdx, :), idxD);
+    lclLinkageNodeLoc(idxC, :) = lclLinkageNodeLoc(idxD, :) + ...
+        [c * cos(theta(inc, 3)), c * sin(theta(inc, 3)), 0];
+
+    if doFlip
+        lclLinkageNodeLoc = mirrorY(lclLinkageNodeLoc, ...
+                                    lclLinkageNodeLoc(originNode, :));
+    end
+    gblLinkageNodeLoc = local2globalcoord(lclLinkageNodeLoc', 'rr', lclOrigin', lclAxes);
+    linkageNodeLoc(:, :, inc) = gblLinkageNodeLoc';
+end
+
+linkageNodeLoc(:, 3, :) = [];
+individualDOFNodeLoc = linkageNodeLoc;
+if doFlip 
+    dPhi = -rad2deg(diff(theta(:, 3)));
+else
+    dPhi = rad2deg(diff(theta(:, 3)));
+end
+end

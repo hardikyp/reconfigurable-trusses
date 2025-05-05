@@ -1,0 +1,34 @@
+function [NODE, ELEM, SUPP, LOAD] = LMesh(Nx, Ny, Lx, Ly)
+NODE = zeros((Nx + Ny) * 2, 2);
+X = linspace(0, Lx, Nx + 1);
+Y = linspace(0, Ly, Ny + 1);
+
+k = 0;
+for i = 1:length(X)
+    for j = 1:length(Y)
+        Idx = (i - 1) * (Nx + 1) + j;
+        if X(i) <= (Lx / Nx)
+            k = k + 1;
+            NODE(k, :) = [X(i), Y(j)];
+        elseif Idx > (1 + Ny) * 2
+            if Y(j) <= (Ly / Ny)
+               k = k + 1;
+               NODE(k, :) = [X(i), Y(j)];
+            end
+        end
+    end
+end
+
+k = 0;
+for j=1:Ny, for i=1:Nx
+        n1 = (i-1)*(Ny+1)+j; n2 = i*(Ny+1)+j;
+        if n1 < Ny + 3
+            k = k+1;
+            ELEM{k} = [n1 n2 n2+1 n1+1];
+        end
+end, end
+
+SUPP = [Ny + 1, 1, 1;
+        2 * (Ny + 1), 1, 1];
+LOAD = [Nx * (Ny + 1) + 1, 0, -1];
+end

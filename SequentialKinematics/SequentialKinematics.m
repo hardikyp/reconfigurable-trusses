@@ -1,0 +1,215 @@
+function [kinematicsData] = SequentialKinematics(flatFoldableTruss, ...
+                                                 steps, ...
+                                                 pctActuation)
+nodes = flatFoldableTruss.nodes;
+connectivity = flatFoldableTruss.connectivity;
+supports = flatFoldableTruss.supports;
+newNodeHist = flatFoldableTruss.newNodeHist;
+triangles = flatFoldableTruss.triangles;
+newNodeNum = flatFoldableTruss.newNodeNum;
+kinematicsNodeLoc = repmat(nodes, [1, 1, length(newNodeNum) * (steps + 1)]);
+nonRigidRotNodes = setdiff(1:size(nodes, 2), ...
+    min(triangles(newNodeHist(1, 4), :)):size(nodes, 1));
+
+% Going over each system DOF
+for dof = 1:length(newNodeNum)
+    % Check for the type of DOF :: Single 4BL
+    % or 6BL (with two similar triangles)
+    count = 0;
+    isSingle4BL = true;
+    for i = 1:size(triangles, 1)
+        if all(ismember(newNodeHist(dof, 2:3), triangles(i, :)))
+            count = count + 1;
+        end
+    end
+    
+    if count > 1
+        isSingle4BL = false;
+    end
+
+    if isSingle4BL
+        % Node numbers forming linkage in terms of global node numbering
+        linkageNodes = sort([newNodeNum(dof), ...
+                            triangles(newNodeHist(dof, 4), :)]);
+    
+        % Coordinates of the nodes forming linkage
+        linkageCoordinates = nodes(linkageNodes, :);
+        linkageCoordinates = [linkageCoordinates, ...
+                              zeros(length(linkageNodes), 1)];
+    
+        % Nodes forming linkage bars in terms of global node numbering
+        idx = zeros(size(connectivity, 1), 1);
+        for i = 1:length(idx)
+            if all(ismember(connectivity(i, :), linkageNodes))
+                idx(i) = 1;
+            end
+        end
+        linkageConnectivity = connectivity(logical(idx), :);
+        groundLink = find(ismember(linkageConnectivity, newNodeHist(dof, 6:7), 'rows'));
+        originNode = find(ismember(linkageNodes, newNodeHist(dof, 5)));
+        addedNode = find(ismember(linkageNodes, newNodeHist(dof, 1)));
+        
+        % Renumber connectivity in terms of linakge nodes
+        for i = 1:length(linkageNodes)
+            linkageConnectivity(linkageConnectivity==linkageNodes(i)) = i;
+        end
+
+        % Perform four bar kinematic analysis
+        [individualDOFNodeLoc, dPhi] = fourBarLinkageKinematics(linkageCoordinates, ...
+                                                                linkageConnectivity, ...
+                                                                groundLink, originNode, ...
+                                                                addedNode, ...
+                                                                pctActuation(dof), steps);
+    
+        % Save node location data for each step of kinematic analysis
+        kinematicsNodeLoc(linkageNodes, :, ((dof - 1)*(steps + 1) + 1):(dof)*(steps + 1)) = individualDOFNodeLoc;
+    
+        % if structure has nodes beyond current dof, calcualte
+        % rigid rotation angle
+        if dof < length(newNodeNum)
+            % Find linakge that shares side with remaining structure
+            logicalCdtn = (linkageConnectivity ~= originNode & ...
+                           linkageConnectivity ~= addedNode);
+            rotatingLink = linkageConnectivity(all(logicalCdtn, 2), :);
+            anchorNode = intersect(linkageNodes(linkageConnectivity(groundLink, :)), linkageNodes(rotatingLink));
+            % nonRigidRotNodes = unique([nonRigidRotNodes, 1:max(linkageNodes)]);
+            nonRigidRotNodes = unique([nonRigidRotNodes, linkageNodes]);
+            rigidRotNodes = setdiff(1:size(nodes, 1), nonRigidRotNodes);
+            for i = 1:steps
+                tempNodes = kinematicsNodeLoc(rigidRotNodes, :, (dof-1)*(steps+1) + i);
+                tempNodes = [tempNodes, zeros(length(rigidRotNodes), 1)];
+                tempNodes = tempNodes - [nodes(anchorNode, :), 0]; % subtracting location from nodes works here because the anchor point is not moving
+                tempNodes = rotz(dPhi(i)) * tempNodes';
+                tempNodes = tempNodes' + [nodes(anchorNode, :), 0];
+                tempNodes(:, end) = [];        
+                kinematicsNodeLoc(rigidRotNodes, :, ((dof - 1) * (steps + 1) + i + 1)) = tempNodes;
+            end
+        end
+    else %%%% 6BL with single DOF %%%%
+        % Node numbers forming linkage in terms of global node numbering
+        linkageNodes = unique([newNodeNum(dof), ...
+                              triangles(newNodeHist(dof, 4), :), ...
+                              triangles(newNodeHist(dof, 4) + 1, :)]);
+
+        % Coordinates of the nodes forming linkage
+        linkageCoordinates = nodes(linkageNodes, :);
+        linkageCoordinates = [linkageCoordinates, ...
+                              zeros(length(linkageNodes), 1)];
+    
+        % Nodes forming linkage bars in terms of global node numbering
+        idx = zeros(size(connectivity, 1), 1);
+        for i = 1:length(idx)
+            if all(ismember(connectivity(i, :), linkageNodes))
+                idx(i) = 1;
+            end
+        end
+        linkageConnectivity = connectivity(logical(idx), :);
+        groundLink = find(ismember(linkageConnectivity, newNodeHist(dof, 6:7), 'rows'));
+        originNode = find(ismember(linkageNodes, newNodeHist(dof, 5)));
+        addedNode = find(ismember(linkageNodes, newNodeHist(dof, 1)));
+        
+        % Renumber connectivity in terms of linakge nodes
+        for i = 1:length(linkageNodes)
+            linkageConnectivity(linkageConnectivity==linkageNodes(i)) = i;
+        end
+    
+        % Transform linkage nodes to local coordinates
+        lclOrigin = linkageCoordinates(originNode, :);
+        nonOrgGnd = setdiff(linkageConnectivity(groundLink, :), originNode);
+        % d = [linkageCoordinates(nonOrgGnd, 1) - ...
+        %      linkageCoordinates(originNode, 1), ...
+        %      linkageCoordinates(nonOrgGnd, 2) - ...
+        %      linkageCoordinates(originNode, 2)];
+        % l = sqrt(sum(d.^2));
+        % d = d ./ l;
+        % angGround = atan2(d(2), d(1));
+
+        % Perform four bar kinematic analysis
+        [individualDOFNodeLoc, dPhi] = sixBarLinkageKinematics(linkageCoordinates, ...
+                                                                linkageConnectivity, ...
+                                                                groundLink, originNode, ...
+                                                                addedNode, ...
+                                                                pctActuation(dof), steps);
+    
+        % Save node location data for each step of kinematic analysis
+        kinematicsNodeLoc(linkageNodes, :, ((dof - 1)*(steps + 1) + 1):(dof)*(steps + 1)) = individualDOFNodeLoc;
+
+        % if structure has nodes beyond current dof, calcualte
+        % rigid rotation angle
+        if dof < length(newNodeNum)
+            % Find linkage that shares side with remaining structure
+            % nonRigidRotNodes = unique([nonRigidRotNodes, 1:max(linkageNodes)]);
+            nonRigidRotNodes = unique([nonRigidRotNodes, linkageNodes]);
+            rigidRotNodes = setdiff(1:size(nodes, 1), nonRigidRotNodes);
+            
+            logicalCdtn = (linkageConnectivity ~= addedNode & ...
+                           linkageConnectivity ~= nonOrgGnd);
+            rotLinks = linkageConnectivity(all(logicalCdtn, 2), :);
+            rotLinks = reshape(linkageNodes(reshape(rotLinks, 1, [])), 2, 2);
+            % linkX = any(ismember(connectivity, ...
+            %             [rotLinks(1, 1), rotLinks(1, 2) + 1], ...
+            %             'rows'));
+            % linkXIdx = find(rotLinks(:, 1)==linkageNodes(originNode));
+            [linkXIdx,~] = ind2sub(size(rotLinks), find(rotLinks==linkageNodes(originNode)));
+            % linkX = any(ismember(connectivity, ...
+            %                      [repmat(rotLinks(linkXIdx, 1), [length(rigidRotNodes), 1]), rigidRotNodes'], "rows"));
+            linkX = any(ismember(connectivity, ...
+                                 [repmat(linkageNodes(originNode), [length(rigidRotNodes), 1]), rigidRotNodes'], "rows"));
+
+            if linkX
+                % rotatingLink = rotLinks(linkXIdx, :);
+                % anchorNode = rotatingLink(1);
+                anchorNode = linkageNodes(originNode);
+                for i = 1:steps
+                    tempNodes = kinematicsNodeLoc(rigidRotNodes, :, (dof-1)*(steps+1) + i);
+                    tempNodes = [tempNodes, zeros(length(rigidRotNodes), 1)];
+                    % tempNodes = tempNodes - [nodes(anchorNode, :), 0];
+                    tempNodes = tempNodes - [kinematicsNodeLoc(anchorNode, :, ((dof - 1) * (steps + 1) + i + 1)), 0];
+                    tempNodes = rotz(dPhi(i, 1)) * tempNodes';
+                    % tempNodes = tempNodes' + [nodes(anchorNode, :), 0];
+                    tempNodes = tempNodes' + [kinematicsNodeLoc(anchorNode, :, ((dof - 1) * (steps + 1) + i + 1)), 0];
+                    tempNodes(:, end) = [];
+                    kinematicsNodeLoc(rigidRotNodes, :, ((dof - 1) * (steps + 1) + i + 1)) = tempNodes;
+                end
+            else % link Y
+                rotatingLink = rotLinks(setdiff([1 2], linkXIdx), :);
+                anchorNode = rotatingLink(1);
+                for i = 1:steps
+                    tempNodes = kinematicsNodeLoc(rigidRotNodes, :, (dof-1)*(steps+1) + i);
+                    tempNodes = [tempNodes, ...
+                                 zeros(length(rigidRotNodes), 1), ...
+                                 ones(length(rigidRotNodes), 1)];
+                    dx = kinematicsNodeLoc(anchorNode, 1, (dof-1)*(steps+1) + i + 1) - ...
+                         kinematicsNodeLoc(anchorNode, 1, (dof-1)*(steps+1) + i);
+                    dy = kinematicsNodeLoc(anchorNode, 2, (dof-1)*(steps+1) + i + 1) - ...
+                         kinematicsNodeLoc(anchorNode, 2, (dof-1)*(steps+1) + i);
+                    translationMat = [1, 0, 0, dx;
+                                      0, 1, 0, dy;
+                                      0, 0, 1, 0;
+                                      0, 0, 0, 1];
+                    tempNodes = translationMat * tempNodes';
+                    tempNodes = tempNodes(1:3, :)';
+                    % tempNodes = tempNodes - [nodes(anchorNode, :), 0];
+                    tempNodes = tempNodes - [kinematicsNodeLoc(anchorNode, :, ((dof - 1) * (steps + 1) + i + 1)), 0];
+                    tempNodes = rotz(dPhi(i, 2)) * tempNodes';
+                    % tempNodes = tempNodes' + [nodes(anchorNode, :), 0];
+                    tempNodes = tempNodes' + [kinematicsNodeLoc(anchorNode, :, ((dof - 1) * (steps + 1) + i + 1)), 0];
+                    tempNodes(:, end) = [];        
+                    kinematicsNodeLoc(rigidRotNodes, :, ((dof - 1) * (steps + 1) + i + 1)) = tempNodes;
+                end
+            end
+        end
+    end
+
+    nodes = kinematicsNodeLoc(:, :, dof * (steps + 1));
+    kinematicsNodeLoc(:, :, (dof * (steps + 1) + 1):end) = ...
+        repmat(nodes, [1, 1, (length(newNodeNum) - dof) * (steps + 1)]);
+end
+
+kinematicsData.kinematicsNodeLoc = kinematicsNodeLoc;
+kinematicsData.connectivity = connectivity;
+kinematicsData.newNodeNum = newNodeNum;
+kinematicsData.memberForces = flatFoldableTruss.memberForces;
+kinematicsData.supports = supports;
+kinematicsData.barAreas = flatFoldableTruss.barAreas;
+end
