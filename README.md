@@ -8,6 +8,9 @@
 If you use this code in your work, please cite our paper:  
 **Patil, H. Y., & Filipov, E. T. (Under review, 2025)** *Transforming static trusses into shape morphing systems using principles of quadrilateral linkages.* International Journal of Solids and Structures.
 
+### PDF
+[Read the submitted manuscript here](2025-07-25-Reconfigurable-trusses-submission-HYP-ETF.pdf).
+
 ---
 
 ## 🧠 Abstract
