@@ -1,8 +1,6 @@
 # Transforming Static Trusses into Shape-Morphing Systems using Principles of Quadrilateral Linkages
 
-## Authors
-- Hardik Y. Patil (hardikyp@umich.edu)
-- Evgueni T. Filipov (filipov@umich.edu)
+**Authors**: Hardik Y. Patil (hardikyp@umich.edu) and Evgueni T. Filipov (filipov@umich.edu)
 
 This code base contains the workflow for transforming static truss designs into shape-morphing reconfigurable systems and the sequential kinematic simulator for these systems, as discussed in the paper titled "Transforming Static Trusses into Shape-Morphing Systems using Principles of Quadrilateral Linkages".
 
