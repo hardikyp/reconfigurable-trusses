@@ -25,7 +25,7 @@ This repository contains the open-source implementation of the algorithms and si
 
 - **`SequentialKinematics/`**: Functions for performing the sequential kinematic analysis of reconfigurable trusses.
 - **`TopologyOptimization/`**: Functions for obtaining ground-structure based topology-optimized trusses. The ground-structure topology optimization code used here is from the work of Zegard and Paulino (2014).
-> Zegard, T. and Paulino, G.H., 2014. GRAND—Ground structure based topology optimization for arbitrary 2D domains using MATLAB. Structural and Multidisciplinary Optimization, 50, pp.861-882.
+  > Zegard, T. and Paulino, G.H., 2014. GRAND—Ground structure based topology optimization for arbitrary 2D domains using MATLAB. Structural and Multidisciplinary Optimization, 50, pp.861-882.
 - **`ModifiedTopOptTrusses/`**: Simplified structural geometries for continuum-optimized trusses presented in this paper.
 - **`TraditionalTrusses/`**: Structural geometries for traditional truss examples used in this paper.
 - **`Videos/`**: Generated videos of the kinematic simulation of reconfigurable trusses with sequential actuation of their kinematic DOFs.
