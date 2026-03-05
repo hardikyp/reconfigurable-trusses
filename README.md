@@ -12,8 +12,8 @@ This code base contains the workflow for transforming static truss designs into 
 
 ## Citing this work
 
-If you use this codebase in your work, please cite our paper:  
-Patil, H. Y., & Filipov, E. T. (2026). Transforming static trusses into shape morphing systems using principles of quadrilateral linkages. International Journal of Solids and Structures, 332, 113913. [https://doi.org/10.1016/j.ijsolstr.2026.113913](https://doi.org/10.1016/j.ijsolstr.2026.113913)
+If you use this codebase in your work, please cite our paper:
+> Patil, H. Y., & Filipov, E. T. (2026). Transforming static trusses into shape morphing systems using principles of quadrilateral linkages. International Journal of Solids and Structures, 332, 113913. [https://doi.org/10.1016/j.ijsolstr.2026.113913](https://doi.org/10.1016/j.ijsolstr.2026.113913)
 
 ## PDF
 [Read the submitted manuscript here](2025-07-25-Reconfigurable-trusses-submission-HYP-ETF.pdf).
