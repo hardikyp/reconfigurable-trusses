@@ -138,7 +138,7 @@ elseif pctActuation < 0
     theta(:, 1) = linspace(theta(1, 1), -pctActuation * (pi), steps + 1)';
 else
     % theta(:, 1) = linspace(theta(1, 1), -theta(1, 1), steps + 1)';
-    theta(:, 1) = linspace(theta(1, 1), theta(1, 1) - 0.85 * (theta(1, 1) + pi), steps + 1)'; 
+    theta(:, 1) = linspace(theta(1, 1), theta(1, 1) - 0.01 * (theta(1, 1) + pi), steps + 1)'; 
 end
 
 lclLinkageNodeLoc = zeros(5, 3);

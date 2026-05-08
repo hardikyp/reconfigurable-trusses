@@ -1,10 +1,10 @@
 clc; clear; close all;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-addpath("SequentialKinematics\");
-addpath("TopologyOptimization\");
-addpath("TraditionalTrusses\");
-addpath("ModifiedTopOptTruss\");
-addpath("Videos\");
+addpath("SequentialKinematics/");
+addpath("TopologyOptimization/");
+addpath("TraditionalTrusses/");
+addpath("ModifiedTopOptTruss/");
+addpath("Videos/");
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 trussType = "traditional";
 % trussType = "topologyOptimized";
@@ -33,9 +33,9 @@ elseif trussType == "topologyOptimized"
     
     % ------------- STRUCTURED-ORTHOGONAL MESH GENERATION -----------------
     % trussName = 'Bridge';
-    % trussName = 'Cantilever';
-    % [NODE, ELEM, SUPP, LOAD] = StructDomain(4, 1, 4, 1, trussName);
-    % Lvl = 1; RestrictDomain = []; % No restriction for box domain
+    trussName = 'Cantilever';
+    [NODE, ELEM, SUPP, LOAD] = StructDomain(2, 1, 2, 1, trussName);
+    Lvl = 1; RestrictDomain = []; % No restriction for box domain
 
     % ------------- ORTHOGONAL L MESH GENERATION --------------------------
     % trussName = 'L-truss';
@@ -105,5 +105,5 @@ steps = 30;
                                         percentActuationDOF);
 
 %% === PLOT KINEMATICS ====================================================
-% PlotSequentialKinematics(kinematicsData, trussName);
+PlotSequentialKinematics(kinematicsData, trussName);
 PlotConvexHull(kinematicsData, trussName, numDOF, steps);
